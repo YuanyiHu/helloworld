@@ -8,3 +8,11 @@ Achieving some simple shell commands. Like running foreground and background pro
 
 function list
 --------
+void initialize()
+space allocation.
+
+void tokenize ()
+reading a line of input, breaking it up into individual tokens.
+
+int run_command()
+Achieving many functions, such as “listjobs”, fg command, running process in background.
