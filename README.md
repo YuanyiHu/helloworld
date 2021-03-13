@@ -16,3 +16,5 @@ reading a line of input, breaking it up into individual tokens.
 
 int run_command()
 Achieving many functions, such as “listjobs”, fg command, running process in background.
+sh550> ls -l > test
+
