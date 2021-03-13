@@ -21,7 +21,7 @@ size_t MAX_LINE_LEN = 10000;
 #define EXIT_STR "exit"
 #define EXIT_CMD 0
 #define UNKNOWN_CMD 99
-
+#define ERROR_EXIT -1
 
 FILE *fp; // file struct for stdin
 char **tokens;
@@ -126,6 +126,60 @@ int run_command() {
         }
     }
     
+    //check I/O redirection
+    int input_sign_num = 0;
+    int output_sign_num = 0;
+    int input_sign_index = -1;
+    int output_sign_index = -1;
+    
+    for (int i = 0; tokens[i] != NULL; i++) {
+        if (strcmp( tokens[i], "<" ) ==0) {
+            input_sign_num++;
+            input_sign_index = i;
+            if (tokens[i+1] == NULL || strcmp( tokens[i+1], ">" ) ==0 || strcmp( tokens[i], "|" ) ==0 || strcmp( tokens[i+1], "&" ) ==0 ) {
+                input_sign_num++;
+            }
+        }
+        if (strcmp( tokens[i], ">" ) ==0) {
+            output_sign_num++;
+            output_sign_index = i;
+            if (tokens[i+1] == NULL || strcmp( tokens[i+1], "<" ) ==0 || strcmp( tokens[i], "|" ) ==0 || strcmp( tokens[i+1], "&" ) ==0 ) {
+                output_sign_num++;
+            }
+        }
+    }
+    if (input_sign_num > 1 || output_sign_num >1) {
+        printf("I/O redirection error\n");
+        return UNKNOWN_CMD;
+    }
+    
+    int token_num =0 ;
+    while (tokens[token_num] != NULL) {
+        token_num++;
+    }
+    if (token_num > 2 && (input_sign_num == 1 || output_sign_num == 1)) {
+        if (input_sign_num == 1) {
+            char *str;
+            str = tokens[input_sign_index + 1];
+            int fd = open(str, O_RDONLY);
+            if (fd < 0) {
+                printf("open error");
+                return ERROR_EXIT;
+            }
+            dup2(fd, STDIN_FILENO);
+        }
+        if (output_sign_num == 1) {
+            char *str;
+            str = tokens[output_sign_index + 1];
+            int fd = open(str, O_RDWR | O_CREAT | O_TRUNC, 0666);
+            if (fd < 0) {
+                printf("open error");
+                return ERROR_EXIT;
+            }
+            dup2(fd, STDOUT_FILENO);
+        }
+    }
+    
     if (background == 0 || (background == 1 && pid == 0)) {
         if (strcmp( tokens[0], "cmd1" ) ==0)
         {
@@ -134,12 +188,9 @@ int run_command() {
                 printf("cmd1 has arg:%s\n", tokens[i]);
                 i++;
             }
-        }
-        if (strcmp( tokens[0], "get_pid" ) ==0) {
+        }else if (strcmp( tokens[0], "get_pid" ) ==0) {
             printf("Process PID: %d.\n", getpid());
-        }
-        
-        if (strcmp( tokens[0], "listjobs" ) == 0) {
+        }else if (strcmp( tokens[0], "listjobs" ) == 0) {
             for(int i = 0; i < pid_num; i++){
                 char *q = "finished";
                 if (IS_RUNNING[i] == 1) {
@@ -147,9 +198,7 @@ int run_command() {
                 }
                 printf("command %d with PID %d Status: %s\n", i+1, pids[i], q);
             }
-        }
-        
-        if (strcmp( tokens[0], "fg" ) == 0) {
+        }else if (strcmp( tokens[0], "fg" ) == 0) {
             int ret, status;
             int id = -1;
             for (int i = 0; i < pid_num; i++) {
@@ -166,7 +215,41 @@ int run_command() {
                     IS_RUNNING[id] = 0;
                 }
             }
+        }else {
+            int pid_1 = fork();
+            if (pid_1 < 0) {
+                printf("FORK EXECVP ERROR");
+                return  ERROR_EXIT;
+            }else if(pid_1 == 0){
+                int a = 0;
+                if (background == 1) {
+                    a++;
+                }
+                if (input_sign_num == 1) {
+                    a += 2;
+                }
+                if (output_sign_num == 1) {
+                    a += 2;
+                }
+                char *arg1[token_num + 1 - a];
+                for (int i = 0; i < token_num - a; i++) {
+                    arg1[i] = tokens[i];
+                    arg1[i+1] = NULL;
+                }
+                int ret = execvp(arg1[0], arg1);
+                exit(ret);
+            }else if(pid_1 > 0){
+                if (background == 0) {
+                    int ret, status;
+                    ret = waitpid(pid_1, &status, 0);
+                    if (WEXITSTATUS(status) == -1) {
+                        printf("Unknown command.\n");
+                    }
+                }
+            }
         }
+        
+        
             
         if (pid == 0 && background == 1) {
             //close(fileno(fp));
