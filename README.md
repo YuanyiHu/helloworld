@@ -18,4 +18,7 @@ int run_command()
 Achieving many functions, such as “listjobs”, fg command, running process in background.
 
 sh550> ls -l > test
+       ls -l | wc -l
+       cmd1 arg1 arg2 &
+       listjobs
 
