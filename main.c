@@ -73,7 +73,7 @@ void tokenize (char * string)
 
         tokens[token_count] = this_token;
 
-        printf("Token %d: %s\n", token_count, tokens[token_count]);
+        //printf("Token %d: %s\n", token_count, tokens[token_count]);
 
         token_count++;
 
@@ -94,7 +94,7 @@ void read_command()
     // getline will reallocate if input exceeds max length
     assert( getline(&line, &MAX_LINE_LEN, fp) > -1);
 
-    printf("Shell read this line: %s\n", line);
+    //printf("Shell read this line: %s\n", line);
 
     tokenize(line);
 }
@@ -123,8 +123,40 @@ int run_command() {
     if (strcmp( tokens[0], EXIT_STR ) == 0)
         return EXIT_CMD;
     
-    //program running
+    if (strcmp( tokens[0], "fg" ) == 0) {
+        int ret, status;
+        int id = -1;
+        // this "id" is an index
+        for (int i = 0; i < pid_num; i++) {
+            if (pids[i] == atoi(tokens[1])) {
+                id = i;
+                break;
+            }
+        }
+        ret = waitpid(atoi(tokens[1]), &status, 0);
+        if (ret < 0) {
+            perror("wait failed: ");
+        } else {
+            if (id != -1) {
+                IS_RUNNING[id] = 0;
+            }
+        }
+        return UNKNOWN_CMD;
+    } else if (strcmp( tokens[0], "kill" ) == 0) {
+        int id = atoi(tokens[1]);
+        int result = kill(id, SIGKILL);
+        if (result == 0) {
+            int i;
+            for (i = 0; i < pid_num; i++) {
+                if (pids[i] == id) {
+                    break;
+                }
+            }
+            IS_RUNNING[i] = 0;
+        }
+    }
     
+    //program running
     pid = fork();
     if(pid < 0) {
         perror("fork failed:");
@@ -279,29 +311,13 @@ int run_command() {
                     }
                     printf("command %d with PID %d Status: %s\n", i+1, pids[i], q);
                 }
-            } else if (strcmp( tokens[0], "fg" ) == 0) {
-                int ret, status;
-                int id = -1;
-                for (int i = 0; i < pid_num; i++) {
-                    if (pids[i] == atoi(tokens[1])) {
-                        id = i;
-                        break;
-                    }
-                }
-                ret = waitpid(atoi(tokens[1]), &status, 0);
-                if (ret < 0) {
-                    perror("wait failed: ");
-                } else {
-                    if (id != -1) {
-                        IS_RUNNING[id] = 0;
-                    }
-                }
-            } else if (strcmp( tokens[0], "kill" ) == 0) {
-                int id = atoi(tokens[1]);
-                kill(id, SIGINT);
-            } else if (strcmp( tokens[0], "hi" ) == 0) {
+            }  else if (strcmp( tokens[0], "hi" ) == 0) {
                 while (1) {
-                    printf("hi\n");
+                    if (tokens[1] != NULL) {
+                        printf("hi, %s\n", tokens[1]);
+                    }else{
+                        printf("hi\n");
+                    }
                     sleep(1);
                 }
             }else {
